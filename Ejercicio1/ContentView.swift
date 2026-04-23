@@ -23,7 +23,7 @@ struct PokemonListItem: Decodable, Identifiable {
 
     var id: Int {
         // URL format: https://pokeapi.co/api/v2/pokemon/{id}/
-        guard let last = url.split(separator: "/").dropLast().last,
+        guard let last = url.split(separator: "/").last,
               let intId = Int(last) else {
             return UUID().hashValue
         }
@@ -57,8 +57,7 @@ struct PokemonDetail: Decodable {
     struct Sprites: Decodable {
         let front_default: String?
     }
-}
-
+    
     var capitalizedName: String {
         name.capitalized
     }
@@ -66,14 +65,15 @@ struct PokemonDetail: Decodable {
     var imageURL: URL? {
         URL(string: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/\(id.self).png")
     }
+}
+
+    
 
 
 // MARK: - ViewModel
 
 @MainActor
 final class PokemonListViewModel: ObservableObject {
-    let objectWillChange: ObservableObjectPublisher
-    
     @Published var pokemon: [PokemonListItem] = []
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
@@ -153,12 +153,12 @@ final class PokemonListViewModel: ObservableObject {
 
 // MARK: - Views
 
-struct PokemonDetailViewModel: ObservableObject {
+@MainActor final class PokemonDetailViewModel: ObservableObject {
     @Published var detail: PokemonDetail?
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
 
-    mutating func fetchDetail(for pokemon: PokemonListItem) async {
+    func fetchDetail(for pokemon: PokemonListItem) async {
         await MainActor.run {
             self.isLoading = true
             self.errorMessage = nil
