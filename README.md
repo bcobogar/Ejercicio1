@@ -109,3 +109,4 @@ private func color(forType type: String) -> Color { ... }
 La aplicación debería arrancar mostrando el listado de Pokémon, con paginación al final y permitiendo abrir el detalle de cada uno.
 
 ## Enlace video
+https://drive.google.com/file/d/13U1VWNsOPMvw7Pp_zAxbnfhM2Xp8C1xj/view?usp=drivesdk
