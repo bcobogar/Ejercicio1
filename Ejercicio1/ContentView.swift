@@ -260,7 +260,7 @@ struct PokemonDetailView: View {
                                     Text(entry.type.name.capitalized)
                                         .padding(.horizontal, 8)
                                         .padding(.vertical, 4)
-                                        .background(Color.blue.opacity(0.1))
+                                        .background(color(forType: entry.type.name))
                                         .clipShape(Capsule())
                                 }
                             }
@@ -423,7 +423,44 @@ struct PokemonRowView: View {
 
             Spacer()
         }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(.systemBackground))
+                .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
+        )
         .padding(.vertical, 4)
+    }
+}
+
+private func color(forType type: String) -> Color {
+    switch type.lowercased() {
+    case "fire":
+        return Color.red.opacity(0.7)
+    case "water":
+        return Color.blue.opacity(0.7)
+    case "grass", "bug":
+        return Color.green.opacity(0.7)
+    case "electric":
+        return Color.yellow.opacity(0.7)
+    case "poison", "ghost":
+        return Color.purple.opacity(0.7)
+    case "psychic", "fairy":
+        return Color.pink.opacity(0.7)
+    case "rock", "ground":
+        return Color.brown.opacity(0.7)
+    case "ice":
+        return Color.cyan.opacity(0.7)
+    case "fighting":
+        return Color.orange.opacity(0.7)
+    case "dragon":
+        return Color.indigo.opacity(0.7)
+    case "steel":
+        return Color.gray.opacity(0.7)
+    case "normal":
+        return Color(.systemGray4)
+    default:
+        return Color.blue.opacity(0.2)
     }
 }
 
