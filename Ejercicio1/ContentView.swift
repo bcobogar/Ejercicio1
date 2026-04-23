@@ -26,6 +26,26 @@ struct PokemonListItem: Decodable, Identifiable {
               let intId = Int(last) else {
             return UUID().hashValue
         }
+
+struct PokemonDetail: Decodable {
+    struct PokemonTypeEntry: Decodable {
+        struct TypeInfo: Decodable {
+            let name: String
+        }
+        let type: TypeInfo
+    }
+
+    let id: Int
+    let name: String
+    let height: Int
+    let weight: Int
+    let sprites: Sprites
+    let types: [PokemonTypeEntry]
+
+    struct Sprites: Decodable {
+        let front_default: String?
+    }
+}
         return intId
     }
 
@@ -121,6 +141,152 @@ final class PokemonListViewModel: ObservableObject {
 
 // MARK: - Views
 
+struct PokemonDetailViewModel: ObservableObject {
+    @Published var detail: PokemonDetail?
+    @Published var isLoading: Bool = false
+    @Published var errorMessage: String?
+
+    func fetchDetail(for pokemon: PokemonListItem) async {
+        await MainActor.run {
+            self.isLoading = true
+            self.errorMessage = nil
+        }
+
+        guard let url = URL(string: pokemon.url) else {
+            await MainActor.run {
+                self.isLoading = false
+                self.errorMessage = "URL de detalle inválida"
+            }
+            return
+        }
+
+        do {
+            let (data, response) = try await URLSession.shared.data(from: url)
+            guard let httpResponse = response as? HTTPURLResponse,
+                  200..<300 ~= httpResponse.statusCode else {
+                throw URLError(.badServerResponse)
+            }
+
+            let decoded = try JSONDecoder().decode(PokemonDetail.self, from: data)
+            await MainActor.run {
+                self.detail = decoded
+            }
+        } catch {
+            await MainActor.run {
+                self.errorMessage = "Error al cargar detalle: \(error.localizedDescription)"
+            }
+        }
+
+        await MainActor.run {
+            self.isLoading = false
+        }
+    }
+}
+
+struct PokemonDetailView: View {
+    let pokemon: PokemonListItem
+    @StateObject private var viewModel = PokemonDetailViewModel()
+
+    var body: some View {
+        ScrollView {
+            Group {
+                if viewModel.isLoading && viewModel.detail == nil {
+                    ProgressView("Cargando detalle...")
+                        .padding()
+                } else if let error = viewModel.errorMessage, viewModel.detail == nil {
+                    VStack(spacing: 12) {
+                        Text(error)
+                            .multilineTextAlignment(.center)
+                        Button("Reintentar") {
+                            Task {
+                                await viewModel.fetchDetail(for: pokemon)
+                            }
+                        }
+                    }
+                    .padding()
+                } else if let detail = viewModel.detail {
+                    VStack(spacing: 16) {
+                        if let spriteURL = URL(string: detail.sprites.front_default ?? "") {
+                            AsyncImage(url: spriteURL) { phase in
+                                switch phase {
+                                case .empty:
+                                    ProgressView()
+                                        .frame(width: 120, height: 120)
+                                case .success(let image):
+                                    image
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 120, height: 120)
+                                        .background(Color(.systemGray6))
+                                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                                case .failure:
+                                    Image(systemName: "questionmark.square.dashed")
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 120, height: 120)
+                                        .foregroundColor(.gray)
+                                @unknown default:
+                                    EmptyView()
+                                }
+                            }
+                        }
+
+                        Text(detail.name.capitalized)
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
+
+                        Text("#\(detail.id)")
+                            .font(.title3)
+                            .foregroundColor(.secondary)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Tipos")
+                                .font(.headline)
+
+                            HStack {
+                                ForEach(detail.types, id: \.type.name) { entry in
+                                    Text(entry.type.name.capitalized)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(Color.blue.opacity(0.1))
+                                        .clipShape(Capsule())
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                        HStack(spacing: 24) {
+                            VStack {
+                                Text("Altura")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                // PokeAPI: height en decímetros
+                                Text("\(Double(detail.height) / 10, specifier: "%.1f") m")
+                                    .font(.headline)
+                            }
+
+                            VStack {
+                                Text("Peso")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                // PokeAPI: weight en hectogramos
+                                Text("\(Double(detail.weight) / 10, specifier: "%.1f") kg")
+                                    .font(.headline)
+                            }
+                        }
+                    }
+                    .padding()
+                }
+            }
+        }
+        .navigationTitle(pokemon.capitalizedName)
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            await viewModel.fetchDetail(for: pokemon)
+        }
+    }
+}
+
 struct ContentView: View {
     @StateObject private var viewModel = PokemonListViewModel()
 
@@ -142,7 +308,11 @@ struct ContentView: View {
                     VStack {
                         List {
                             ForEach(viewModel.pokemon) { pokemon in
-                                PokemonRowView(pokemon: pokemon)
+                                NavigationLink {
+                                    PokemonDetailView(pokemon: pokemon)
+                                } label: {
+                                    PokemonRowView(pokemon: pokemon)
+                                }
                             }
 
                             if let error = viewModel.errorMessage {
