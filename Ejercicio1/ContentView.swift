@@ -26,6 +26,17 @@ struct PokemonListItem: Decodable, Identifiable {
               let intId = Int(last) else {
             return UUID().hashValue
         }
+        return intId
+    }
+
+    var capitalizedName: String {
+        name.capitalized
+    }
+
+    var imageURL: URL? {
+        URL(string: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/\(id).png")
+    }
+}
 
 struct PokemonDetail: Decodable {
     struct PokemonTypeEntry: Decodable {
@@ -46,8 +57,6 @@ struct PokemonDetail: Decodable {
         let front_default: String?
     }
 }
-        return intId
-    }
 
     var capitalizedName: String {
         name.capitalized
