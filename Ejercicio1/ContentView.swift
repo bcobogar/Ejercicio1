@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+internal import Combine
 
 // MARK: - Models
 
@@ -63,14 +64,16 @@ struct PokemonDetail: Decodable {
     }
 
     var imageURL: URL? {
-        URL(string: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/\(id).png")
+        URL(string: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/\(id.self).png")
     }
-}
+
 
 // MARK: - ViewModel
 
 @MainActor
 final class PokemonListViewModel: ObservableObject {
+    let objectWillChange: ObservableObjectPublisher
+    
     @Published var pokemon: [PokemonListItem] = []
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
@@ -155,7 +158,7 @@ struct PokemonDetailViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
 
-    func fetchDetail(for pokemon: PokemonListItem) async {
+    mutating func fetchDetail(for pokemon: PokemonListItem) async {
         await MainActor.run {
             self.isLoading = true
             self.errorMessage = nil
