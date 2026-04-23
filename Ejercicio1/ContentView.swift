@@ -48,30 +48,28 @@ final class PokemonListViewModel: ObservableObject {
 
     private let baseURL = "https://pokeapi.co/api/v2/pokemon"
     private let limit: Int = 50
-    private var offset: Int = 0
+    private(set) var currentPage: Int = 0
     private var canLoadMore: Bool = true
 
+    var hasNextPage: Bool {
+        canLoadMore
+    }
+
+    var hasPreviousPage: Bool {
+        currentPage > 0
+    }
+
     func fetchInitial() {
-        guard pokemon.isEmpty else { return }
-        offset = 0
-        canLoadMore = true
-        pokemon.removeAll()
-        fetchPokemon()
+        loadPage(0)
     }
 
-    func fetchMoreIfNeeded(currentItem item: PokemonListItem?) {
-        guard let item else { return }
-        let thresholdIndex = pokemon.index(pokemon.endIndex, offsetBy: -5)
-        if pokemon.firstIndex(where: { $0.id == item.id }) == thresholdIndex {
-            fetchPokemon()
-        }
-    }
-
-    func fetchPokemon() {
-        guard !isLoading, canLoadMore else { return }
+    func loadPage(_ page: Int) {
+        guard !isLoading else { return }
 
         isLoading = true
         errorMessage = nil
+
+        let offset = page * limit
 
         var components = URLComponents(string: baseURL)!
         components.queryItems = [
@@ -94,14 +92,30 @@ final class PokemonListViewModel: ObservableObject {
                 }
 
                 let decoded = try JSONDecoder().decode(PokemonListResponse.self, from: data)
-                pokemon.append(contentsOf: decoded.results)
-                offset += limit
-                canLoadMore = decoded.next != nil
+                await MainActor.run {
+                    self.pokemon = decoded.results
+                    self.currentPage = page
+                    self.canLoadMore = decoded.next != nil
+                }
             } catch {
-                errorMessage = "Error al cargar Pokémon: \(error.localizedDescription)"
+                await MainActor.run {
+                    self.errorMessage = "Error al cargar Pokémon: \(error.localizedDescription)"
+                }
             }
-            isLoading = false
+            await MainActor.run {
+                self.isLoading = false
+            }
         }
+    }
+
+    func goToNextPage() {
+        guard hasNextPage else { return }
+        loadPage(currentPage + 1)
+    }
+
+    func goToPreviousPage() {
+        guard hasPreviousPage else { return }
+        loadPage(currentPage - 1)
     }
 }
 
@@ -125,23 +139,60 @@ struct ContentView: View {
                     }
                     .padding()
                 } else {
-                    List {
-                        ForEach(viewModel.pokemon) { pokemon in
-                            PokemonRowView(pokemon: pokemon)
-                                .task {
-                                    viewModel.fetchMoreIfNeeded(currentItem: pokemon)
-                                }
-                        }
+                    VStack {
+                        List {
+                            ForEach(viewModel.pokemon) { pokemon in
+                                PokemonRowView(pokemon: pokemon)
+                            }
 
-                        if viewModel.isLoading {
-                            HStack {
-                                Spacer()
-                                ProgressView()
-                                Spacer()
+                            if let error = viewModel.errorMessage {
+                                Section {
+                                    VStack(spacing: 8) {
+                                        Text(error)
+                                            .font(.footnote)
+                                            .foregroundColor(.red)
+                                            .multilineTextAlignment(.center)
+                                        Button("Reintentar") {
+                                            viewModel.loadPage(viewModel.currentPage)
+                                        }
+                                        .buttonStyle(.bordered)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                }
+                            }
+
+                            if viewModel.isLoading {
+                                HStack {
+                                    Spacer()
+                                    ProgressView()
+                                    Spacer()
+                                }
                             }
                         }
+                        .listStyle(.plain)
+
+                        HStack {
+                            Button("Anterior") {
+                                viewModel.goToPreviousPage()
+                            }
+                            .disabled(!viewModel.hasPreviousPage || viewModel.isLoading)
+
+                            Spacer()
+
+                            Text("Página \(viewModel.currentPage + 1)")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+
+                            Spacer()
+
+                            Button("Siguiente") {
+                                viewModel.goToNextPage()
+                            }
+                            .disabled(!viewModel.hasNextPage || viewModel.isLoading)
+                        }
+                        .padding()
                     }
-                    .listStyle(.plain)
                 }
             }
             .navigationTitle("Pokédex")
