@@ -108,10 +108,4 @@ private func color(forType type: String) -> Color { ... }
 
 La aplicación debería arrancar mostrando el listado de Pokémon, con paginación al final y permitiendo abrir el detalle de cada uno.
 
-## Posibles mejoras futuras
-
-- Búsqueda por nombre o número de Pokédex.
-- Filtros por tipo de Pokémon.
-- Persistencia en caché de resultados para uso offline.
-- Animaciones extra en las tarjetas y transición hacia la vista detalle.
-- Soporte para modo horizontal y iPad con layout adaptativo.
+## Enlace video
